@@ -7,10 +7,8 @@ from sklearn.preprocessing import StandardScaler
 
 data = pd.read_csv('brightondata.csv')
 
-data = data[['Year', 'Total Housing Units', 'Median Sales Price', 'Total Population']] # for testing, delete later
 data = data.dropna()
-X = data[['Year', 'Median Sales Price', 'Total Population']]
-# X = data[['Year', 'Median Sales Price', 'Total Population', 'Median Income Level']]
+X = data[['Year', 'Median Sales Price', 'Total Population', 'Median Income Level']]
 y = data['Total Housing Units']
 
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size = 0.2, random_state = 42)
@@ -29,7 +27,7 @@ intercept = model.intercept_
 mse = mean_squared_error(y_test, predictions)
 r2 = r2_score(y_test, predictions)
 
-formula = f"Total Housing Units = {intercept:.2f} + {coefficients[0]:.2f}*Year + {coefficients[1]:.2f}*Median Sales Price + {coefficients[2]:.2f}*Total Population"
+formula = f"Total Housing Units = {intercept:.2f} + {coefficients[0]:.2f}*Year + {coefficients[1]:.2f}*Median Sales Price + {coefficients[2]:.2f}*Total Population + + {coefficients[3]:.2f}*Median Income Level"
 print("Linear Regression Formula:")
 print(formula)
 

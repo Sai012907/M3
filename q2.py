@@ -1,35 +1,40 @@
-import pandas as pd
+import pymc3 as pm
 import numpy as np
 import matplotlib.pyplot as plt
-from statsmodels.tsa.arima.model import ARIMA
-from sklearn.metrics import mean_squared_error
 
-# Sample data representing the past homeless population for a region
-years = np.array([2010, 2015, 2020, 2025, 2030, 2035, 2040, 2045, 2050])
-homeless_population = np.array([500, 600, 700, 800, 900, 1000, 1100, 1200, 1300])
+# Sample data
+x = np.array([1, 2, 3, 4, 5])
+y = np.array([2, 3, 4, 4.5, 5.5])
 
-# Create a pandas DataFrame
-data = pd.DataFrame({'Year': years, 'Homeless_Population': homeless_population})
-data.set_index('Year', inplace=True)
+# Bayesian linear regression model
+with pm.Model() as model:
+    # Priors for the parameters
+    alpha = pm.Normal('alpha', mu=0, sd=10)
+    beta = pm.Normal('beta', mu=0, sd=10)
 
-# Fit ARIMA model
-model = ARIMA(data, order=(1, 1, 1))  # Adjust order based on your data characteristics
-fit_model = model.fit()
+    # Likelihood function
+    mu = alpha + beta * x
+    sigma = pm.HalfNormal('sigma', sd=1)
+    y_obs = pm.Normal('y_obs', mu=mu, sd=sigma, observed=y)
 
-# Forecast future homeless population
-future_years = np.array([2060, 2070, 2090])
-forecast, stderr, conf_int = fit_model.forecast(steps=len(future_years))
+    # Sample from the posterior distribution
+    trace = pm.sample(1000, tune=1000)
 
 # Plotting the results
-plt.plot(data.index, data['Homeless_Population'], label='Actual Data')
-plt.plot(np.append(data.index, future_years), np.append(data['Homeless_Population'], forecast), linestyle='dashed', color='red', label='ARIMA Forecast')
-plt.title('Homeless Population Prediction using ARIMA')
-plt.xlabel('Year')
-plt.ylabel('Homeless Population')
-plt.legend()
+pm.traceplot(trace)
 plt.show()
 
-# Display the forecasts for the future years
-for year, prediction in zip(future_years, forecast):
-    print(f'Year {year}: Predicted Homeless Population - {round(prediction)}')
+# Display summary statistics of the posterior distribution
+print(pm.summary(trace))
 
+# Predictions for new data
+new_x = np.array([6, 7, 8])
+with model:
+    y_pred = pm.sample_posterior_predictive(trace, samples=500, var_names=['y_obs'], input_vals={'x': new_x})
+
+# Plotting the predictions
+plt.scatter(x, y, label='Observed Data')
+plt.plot(new_x, np.median(y_pred['y_obs'], axis=0), label='Median Prediction', color='red')
+plt.fill_between(new_x, np.percentile(y_pred['y_obs'], 2.5, axis=0), np.percentile(y_pred['y_obs'], 97.5, axis=0), color='red', alpha=0.3, label='95% Credible Interval')
+plt.legend()
+plt.show()

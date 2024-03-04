@@ -5,9 +5,9 @@ from statsmodels.tsa.holtwinters import ExponentialSmoothing
 
 
 data = pd.read_csv('manchesterdata.csv')
-
-data = data.dropna()
 data = data[['Year', 'Total Housing Units']]
+data = data.dropna()
+
 
 data['Year'] = pd.to_datetime(data['Year'], format='%Y')
 
@@ -16,7 +16,7 @@ data.set_index('Year', inplace=True)
 model = ExponentialSmoothing(data['Total Housing Units'], trend='add', seasonal=None)
 fit_model = model.fit()
 
-future_years = pd.date_range(start=data.index[-1] + pd.DateOffset(years=1), periods=50, freq='A')  # Adjust as needed
+future_years = pd.date_range(start=data.index[-1] + pd.DateOffset(years=1), periods=50, freq='YE')  # Adjust as needed
 future_predictions = fit_model.predict(start=len(data), end=len(data) + len(future_years) - 1)
 for year in [10, 20, 50]:
     print(f'Year {year}: Predicted Housing Supply - {int(future_predictions[year-1])}')

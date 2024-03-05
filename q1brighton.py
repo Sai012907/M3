@@ -1,36 +1,53 @@
 import pandas as pd
-from sklearn.model_selection import train_test_split
-from sklearn.linear_model import LinearRegression
-from sklearn.metrics import mean_squared_error, r2_score
 import matplotlib.pyplot as plt
-from sklearn.preprocessing import StandardScaler
+from statsmodels.tsa.holtwinters import ExponentialSmoothing
+from sklearn.metrics import mean_squared_error
+
 
 data = pd.read_csv('brightondata.csv')
-
+data = data[['Year', 'Total Housing Units']]
 data = data.dropna()
-X = data[['Median Sales Price', 'Total Population', 'Median Income Level']]
-y = data['Total Housing Units']
+data = data[data['Year'] != 2021] # Drop 2021 for sensitivity analysis
+print(data)
 
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size = 0.2, random_state = 42)
 
-scaler = StandardScaler()
-X_train_scaled = scaler.fit_transform(X_train)
-X_test_scaled = scaler.transform(X_test)
+data['Year'] = pd.to_datetime(data['Year'], format='%Y')
 
-model = LinearRegression()
-model.fit(X_train_scaled, y_train)
+data.set_index('Year', inplace=True)
 
-predictions = model.predict(X_test_scaled)
+model = ExponentialSmoothing(data['Total Housing Units'], trend='add', seasonal=None)
 
-coefficients = model.coef_
-intercept = model.intercept_
-mse = mean_squared_error(y_test, predictions)
-r2 = r2_score(y_test, predictions)
+future_years = pd.date_range(start=data.index[0] + pd.DateOffset(years=1), periods=82, freq='YE')  # Adjust as needed
 
-#formula = f"Total Housing Units = {intercept:.2f} + {coefficients[0]:.2f}*Year + {coefficients[1]:.2f}*Median Sales Price + {coefficients[2]:.2f}*Total Population + {coefficients[3]:.2f}*Median Income Level"
-formula = f"Total Housing Units = {intercept:.2f} + {coefficients[0]:.2f}*Median Sales Price + {coefficients[1]:.2f}*Total Population + {coefficients[2]:.2f}*Median Income Level"
-print("Linear Regression Formula:")
-print(formula)
+best_mse = 1000000000
+best_alpha = None
+best_beta = None
 
-print(f'Mean Squared Error: {mse}')
-print(f'R-squared: {r2}')
+# Brute force alpha and beta
+for a in range(1, 10):
+    for b in range(1, 10):
+        alpha = a/10
+        beta = b/10
+        fit_model = model.fit(smoothing_level=alpha, smoothing_trend=beta)
+        future_predictions = fit_model.predict(start=0, end=len(future_years) - 1)
+        mse = mean_squared_error(data['Total Housing Units'], future_predictions[:28])
+        if mse < best_mse:
+            best_mse = mse
+            best_alpha = alpha
+            best_beta = beta
+
+print(best_alpha, best_beta)
+fit_model = model.fit(smoothing_level=best_alpha, smoothing_trend=best_beta)
+future_predictions = fit_model.predict(start=0, end=len(future_years) - 1)
+
+# Finding exact predictions for 2021, 2034, 2044, 2074
+for year in [29, 41, 51, 81]:
+    print(f'Year {year}: Predicted Housing Supply - {int(future_predictions[year-1])}')
+
+plt.plot(data.index, data['Total Housing Units'], label='Actual Housing Supply')
+plt.plot(future_years, future_predictions, label='Predicted Housing Supply', linestyle='dashed', color='orange')
+plt.xlabel('Year')
+plt.ylabel('Housing Supply')
+plt.title('Housing Supply Prediction in Brighton with Double Exponential Smoothing')
+plt.legend()
+plt.show()
